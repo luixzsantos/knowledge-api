@@ -61,7 +61,10 @@ public class ConceptService(
             .ToList();
 
         return new ConceptDetailDto(
-            concept.Id, concept.Name, concept.Description, concept.Level, concept.CreatedAt, concept.UpdatedAt,
+            concept.Id, concept.Name, concept.Description, concept.Level,
+            concept.SimpleAnalogy, concept.Explanation, concept.CodeExample, concept.ExpectedOutput,
+            concept.WhereUsed, concept.DocumentationUrl,
+            concept.CreatedAt, concept.UpdatedAt,
             notes, projects, tags, relations);
     }
 
@@ -193,6 +196,12 @@ public class ConceptService(
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             Level = request.Level,
+            SimpleAnalogy = request.SimpleAnalogy?.Trim(),
+            Explanation = request.Explanation?.Trim(),
+            CodeExample = request.CodeExample?.Trim(),
+            ExpectedOutput = request.ExpectedOutput?.Trim(),
+            WhereUsed = request.WhereUsed?.Trim(),
+            DocumentationUrl = request.DocumentationUrl?.Trim(),
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -219,6 +228,12 @@ public class ConceptService(
         concept.Name = request.Name.Trim();
         concept.Description = request.Description?.Trim();
         concept.Level = request.Level;
+        concept.SimpleAnalogy = request.SimpleAnalogy?.Trim();
+        concept.Explanation = request.Explanation?.Trim();
+        concept.CodeExample = request.CodeExample?.Trim();
+        concept.ExpectedOutput = request.ExpectedOutput?.Trim();
+        concept.WhereUsed = request.WhereUsed?.Trim();
+        concept.DocumentationUrl = request.DocumentationUrl?.Trim();
         concept.UpdatedAt = DateTime.UtcNow;
 
         await repository.SaveChangesAsync(cancellationToken);

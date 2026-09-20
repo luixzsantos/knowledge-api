@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $ApiBase = "http://localhost:5080/api"
-$VaultRoot = "C:\Users\luizf\OneDrive\Documents\SEGUNDO CÉREBRO\SEGUNDO CÉREBRO"
+$VaultRoot = "$env:USERPROFILE\OneDrive\Documents\SEGUNDO CÉREBRO\SEGUNDO CÉREBRO"
 $FoldersToSync = @("05-STACK TECNOLÓGICA", "08-CONCEITOS FUNDAMENTAIS")
 $SkipFiles = @("Leia-me.md")
 

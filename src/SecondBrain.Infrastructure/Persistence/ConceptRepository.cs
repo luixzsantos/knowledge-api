@@ -28,6 +28,10 @@ public class ConceptRepository(SecondBrainDbContext context) : IConceptRepositor
     public async Task<Concept?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await context.Concepts.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 
+    // ToLower() dos dois lados continua aqui (mesmo Name sendo citext no Postgres)
+    // porque os testes unitários rodam contra EF InMemory, que não conhece citext
+    // e faria comparação case-sensitive sem isso. citext é quem garante a unicidade
+    // de verdade no banco; esta consulta só precisa concordar com o mesmo critério.
     public async Task<Concept?> GetByNameAsync(string name, CancellationToken cancellationToken = default) =>
         await context.Concepts.FirstOrDefaultAsync(
             c => c.Name.ToLower() == name.Trim().ToLower(), cancellationToken);

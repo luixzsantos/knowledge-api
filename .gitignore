@@ -20,8 +20,8 @@ obj/
 *.pfx
 
 # Artefatos de execucao local (start.bat/dev)
-api-out.log
-api-err.log
+api.out.log
+api.err.log
 api.pid
 
 # OS

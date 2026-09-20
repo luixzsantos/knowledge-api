@@ -16,17 +16,27 @@ public class SecondBrainDbContext(DbContextOptions<SecondBrainDbContext> options
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // citext: unicidade de nome case-insensitive garantida pelo próprio tipo da coluna,
+        // não só por comparação no C# — "Redis" e "redis" colidem no índice único do Postgres,
+        // não só na checagem do service (antes, o índice era case-sensitive e não pegava isso).
+        modelBuilder.HasPostgresExtension("citext");
+
         modelBuilder.Entity<Concept>(entity =>
         {
             entity.ToTable("concepts");
             entity.HasKey(c => c.Id);
-            entity.Property(c => c.Name).IsRequired().HasMaxLength(150);
+            entity.Property(c => c.Name).IsRequired().HasColumnType("citext");
             entity.Property(c => c.Description).HasMaxLength(4000);
             entity.Property(c => c.Level).HasConversion<string?>().HasMaxLength(20);
+            entity.Property(c => c.SimpleAnalogy).HasMaxLength(2000);
+            entity.Property(c => c.Explanation).HasMaxLength(8000);
+            entity.Property(c => c.CodeExample).HasMaxLength(8000);
+            entity.Property(c => c.ExpectedOutput).HasMaxLength(4000);
+            entity.Property(c => c.WhereUsed).HasMaxLength(2000);
+            entity.Property(c => c.DocumentationUrl).HasMaxLength(500);
             entity.Property(c => c.CreatedAt).IsRequired();
             entity.Property(c => c.UpdatedAt).IsRequired();
 
-            // Nome único (case-insensitive via citext seria ideal; index padrão por ora)
             entity.HasIndex(c => c.Name).IsUnique();
         });
 
@@ -44,7 +54,7 @@ public class SecondBrainDbContext(DbContextOptions<SecondBrainDbContext> options
         {
             entity.ToTable("tags");
             entity.HasKey(t => t.Id);
-            entity.Property(t => t.Name).IsRequired().HasMaxLength(50);
+            entity.Property(t => t.Name).IsRequired().HasColumnType("citext");
             entity.HasIndex(t => t.Name).IsUnique();
         });
 

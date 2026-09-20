@@ -9,6 +9,16 @@ public class Concept
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public ConceptLevel? Level { get; set; }
+
+    // Conteúdo estruturado do verbete (em vez de um bloco de texto único):
+    // cada campo responde uma pergunta específica de quem está aprendendo.
+    public string? SimpleAnalogy { get; set; } // "em termos simples", sem jargão
+    public string? Explanation { get; set; } // como funciona / como usar
+    public string? CodeExample { get; set; } // um exemplo real
+    public string? ExpectedOutput { get; set; } // o que o exemplo produz — ou, se nada é impresso, o que está acontecendo
+    public string? WhereUsed { get; set; } // onde esse código pode ser usado na prática
+    public string? DocumentationUrl { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

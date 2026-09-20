@@ -1,12 +1,18 @@
 ﻿<#
 Importa o conhecimento de linguagens/bibliotecas real (extraido dos projetos
 do usuario) para o SecondBrain: cada arquivo em scripts/data/language-knowledge/
-vira uma Tag (a linguagem), varios Concepts (um por topico, basico->avancado)
-e uma Note por Concept com a explicacao completa + o codigo real do projeto,
-ja relacionada ao Concept e ao Project de origem.
+vira uma Tag (a linguagem) e varios Concepts (um por topico, basico->avancado),
+ja relacionados ao Project de origem.
 
-Idempotente: casa Concept por nome, Note por titulo, Tag por nome e Project
-por nome - roda de novo sem duplicar, so atualiza a descricao/conteudo.
+Cada Concept vai com os campos estruturados preenchidos direto (nao mais um
+Note gigante de texto solto): SimpleAnalogy, Explanation, CodeExample,
+ExpectedOutput, WhereUsed, DocumentationUrl - um por pergunta especifica
+("como funciona", "o que ele imprime", "onde eu uso isso").
+
+Idempotente: casa Concept por nome, Tag por nome e Project por nome - roda de
+novo sem duplicar, so atualiza os campos. Tambem apaga qualquer Note antiga
+"(nota completa)" que uma versao anterior deste script tenha criado, ja que
+o conteudo dela agora mora no proprio Concept.
 Requer a API do SecondBrain no ar (rode start.bat primeiro).
 #>
 
@@ -67,14 +73,6 @@ foreach ($t in (Invoke-RestMethod -Uri "$ApiBase/tags" -Method Get)) { $tagByNam
 $projectByName = @{}
 foreach ($p in (Invoke-RestMethod -Uri "$ApiBase/projects" -Method Get)) { $projectByName[$p.name.ToLower()] = $p }
 
-$fenceByTag = @{
-    go = "go"; csharp = "csharp"; cpp = "cpp"; python = "python"; java = "java"; javascript = "javascript"
-    redis = "bash"; postgresql = "sql"; html = "html"
-}
-# 3 backticks como variavel evita ter que escapar backtick dentro de string
-# interpolada do PowerShell (onde backtick e o caractere de escape).
-$fence3 = [string]::new([char]96, 3)
-
 # Projetos reais que vieram do GitHub de um colaborador (nao do usuario) - a
 # descricao do Project precisa deixar isso explicito, em vez de dizer "projeto
 # real do usuario" pra algo que na verdade e codigo de outra pessoa.
@@ -105,6 +103,7 @@ function Get-ConceptLevel {
 $totalCreated = 0
 $totalUpdated = 0
 $totalFailed = 0
+$totalOldNotesDeleted = 0
 
 Get-ChildItem -Path $DataDir -Filter "*.json" | ForEach-Object {
     $data = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -142,69 +141,46 @@ Get-ChildItem -Path $DataDir -Filter "*.json" | ForEach-Object {
                 $projectId = $projResp.id
             }
 
-            # Concept (verbete)
+            # Concept (verbete) - campos estruturados vao direto no Concept, cada
+            # um respondendo uma pergunta especifica de quem esta aprendendo.
             $conceptKey = $concept.name.ToLower()
-            $fence = $fenceByTag[$data.tag]
             $conceptLevel = Get-ConceptLevel -Level $concept.level
+
+            # "Onde usar" sempre termina apontando pro repositorio real de onde o
+            # codigo veio - mesmo quando o JSON nao tem um whereUsed detalhado.
+            $repoLine = "Repositorio: $($concept.projectName)"
+            $whereUsed = if ($concept.whereUsed) { "$($concept.whereUsed)`n`n$repoLine" } else { $repoLine }
+
+            $conceptPayload = @{
+                name             = $concept.name
+                description      = $concept.shortDescription
+                level            = $conceptLevel
+                simpleAnalogy    = $concept.simpleAnalogy
+                explanation      = $concept.explanation
+                codeExample      = $concept.codeExample
+                expectedOutput   = $concept.resposta
+                whereUsed        = $whereUsed
+                documentationUrl = $concept.documentationUrl
+            }
             if ($conceptByName.ContainsKey($conceptKey)) {
                 $conceptId = $conceptByName[$conceptKey].id
-                Invoke-JsonApi -Uri "$ApiBase/concepts/$conceptId" -Method Put -Payload @{ name = $concept.name; description = $concept.shortDescription; level = $conceptLevel } | Out-Null
+                Invoke-JsonApi -Uri "$ApiBase/concepts/$conceptId" -Method Put -Payload $conceptPayload | Out-Null
                 $script:totalUpdated++
             } else {
-                $conceptResp = Invoke-JsonApi -Uri "$ApiBase/concepts" -Method Post -Payload @{ name = $concept.name; description = $concept.shortDescription; level = $conceptLevel }
+                $conceptResp = Invoke-JsonApi -Uri "$ApiBase/concepts" -Method Post -Payload $conceptPayload
                 $conceptByName[$conceptKey] = $conceptResp
                 $conceptId = $conceptResp.id
                 $script:totalCreated++
             }
 
-            # Note: primeiro uma analogia simples pra quem nao entende de programacao,
-            # depois o nivel e a explicacao tecnica + codigo, e so no final o
-            # repositorio real onde esse mesmo codigo foi usado - nessa ordem de
-            # leitura (do mais simples ao mais tecnico, terminando no "isso e real").
-            $noteTitle = "$($concept.name) (nota completa)"
-            $noteLines = @(
-                "## Em termos simples"
-                ""
-                $concept.simpleAnalogy
-                ""
-                "**Nivel:** $($concept.level)"
-                ""
-                $concept.explanation
-                ""
-                "## Exemplo de codigo"
-                ""
-                "$fence3$fence"
-                $concept.codeExample
-                $fence3
-            )
-            if ($concept.PSObject.Properties.Name -contains "resposta" -and $concept.resposta) {
-                $noteLines += ""
-                $noteLines += "## Resposta esperada"
-                $noteLines += ""
-                $noteLines += $concept.resposta
-            }
-            $noteLines += @(
-                ""
-                "## Onde isso aparece na pratica"
-                ""
-                "**Repositorio:** $($concept.projectName)"
-                ""
-                $concept.whereUsed
-            )
-            if ($concept.PSObject.Properties.Name -contains "documentationUrl" -and $concept.documentationUrl) {
-                $noteLines += ""
-                $noteLines += "**Documentacao oficial:** $($concept.documentationUrl)"
-            }
-            $noteContent = $noteLines -join "`n"
-            $noteKey = $noteTitle.ToLower()
-            if ($noteByTitle.ContainsKey($noteKey)) {
-                $noteId = $noteByTitle[$noteKey].id
-                Invoke-JsonApi -Uri "$ApiBase/notes/$noteId" -Method Put -Payload @{ title = $noteTitle; content = $noteContent } | Out-Null
-            } else {
-                $noteResp = Invoke-JsonApi -Uri "$ApiBase/notes" -Method Post -Payload @{ title = $noteTitle; content = $noteContent }
-                $noteByTitle[$noteKey] = $noteResp
-                $noteId = $noteResp.id
-                Invoke-JsonApiIgnoreConflict -Uri "$ApiBase/concepts/$conceptId/notes/$noteId" -Method Post
+            # Uma versao antiga deste script criava uma Note "(nota completa)" com
+            # tudo isso em texto solto. Esse conteudo agora mora no Concept acima,
+            # entao a Note antiga (se existir) fica so duplicando informacao - apaga.
+            $oldNoteKey = "$($concept.name) (nota completa)".ToLower()
+            if ($noteByTitle.ContainsKey($oldNoteKey)) {
+                Invoke-RestMethod -Uri "$ApiBase/notes/$($noteByTitle[$oldNoteKey].id)" -Method Delete | Out-Null
+                $noteByTitle.Remove($oldNoteKey)
+                $script:totalOldNotesDeleted++
             }
 
             # Relacionamentos: Concept <-> Project e Concept <-> Tag (idempotente, ignora 409)
@@ -220,4 +196,4 @@ Get-ChildItem -Path $DataDir -Filter "*.json" | ForEach-Object {
 }
 
 Write-Host ""
-Write-Host "Importacao concluida: $totalCreated criado(s), $totalUpdated atualizado(s), $totalFailed falha(s)."
+Write-Host "Importacao concluida: $totalCreated criado(s), $totalUpdated atualizado(s), $totalFailed falha(s), $totalOldNotesDeleted nota(s) antiga(s) removida(s)."
