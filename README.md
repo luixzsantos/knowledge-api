@@ -62,6 +62,11 @@ ainda tem o Swagger em `/swagger`.
 
 ## Sincronizar com o Obsidian
 
+O vault de origem (Segundo Cérebro) é público em
+[github.com/luixzsantos/obsidian-vault](https://github.com/luixzsantos/obsidian-vault) — é o próprio vault
+Obsidian versionado, não um espelho estático: sempre reflete o conteúdo mais recente, então não faz sentido
+duplicar um snapshot dele aqui dentro do knowledge-api.
+
 Se você já anota tecnologias e conceitos no seu vault do Obsidian (pastas `05-STACK TECNOLÓGICA` e
 `08-CONCEITOS FUNDAMENTAIS`), não precisa digitar tudo de novo aqui: [`sync-obsidian.bat`](sync-obsidian.bat)
 importa cada nota como um verbete (`Concept`) — a definição curta vem da seção "## O que é" da nota (quando
